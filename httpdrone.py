@@ -79,6 +79,7 @@ class _RequestHandler(http.server.BaseHTTPRequestHandler):
 
         body_length = self.headers.get('Content-Length')
         if body_length is not None:
+            body_length = int(body_length)
             request.body = self.rfile.read(body_length)
 
         response = handler(request)
@@ -121,11 +122,14 @@ class _RequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-Type', content_type)
             self.send_response(status)
         
-        self.end_headers()
 
         if body is not None:
             assert isinstance(body, bytes)
+            self.send_header('Content-Length', len(body))
+            self.end_headers()
             self.wfile.write(body)
+        else:
+            self.end_headers()
 
 
 # What follows is some poor man's pattern matcher.

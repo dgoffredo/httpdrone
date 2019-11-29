@@ -1,10 +1,13 @@
 import httpdrone as httpd
 import os
+import sys
 
 
 def handle_get(request):
     if request.path != '/example':
         return 404
+
+    print(request.body, file=sys.stderr)
 
     return b'<html><body>Here you go!</body></html>'
 
