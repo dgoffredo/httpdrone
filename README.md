@@ -1,3 +1,5 @@
+<img src="drone.jpg" height="300"/>
+
 httpdrone
 =========
 A mindless HTTP server in Python.
