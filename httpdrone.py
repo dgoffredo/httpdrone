@@ -63,7 +63,7 @@ class _RequestHandler(http.server.BaseHTTPRequestHandler):
         NOT_IMPLEMENTED = 501
 
         def is_error(status):
-            return 100 <= status <= 399
+            return 400 <= status <= 599
 
         if handler is None:
             self.send_error(
