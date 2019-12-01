@@ -5,6 +5,7 @@
 import collections.abc as abc
 from dataclasses import dataclass
 import http.server
+import traceback
 import typing
 
 
@@ -59,6 +60,14 @@ class Request:
 
 class _RequestHandler(http.server.BaseHTTPRequestHandler):
     def handle_command(self, command, handler):
+        try:
+            return self._do_handle_command(command, handler)
+        except Exception:
+            traceback.print_exc()
+            INTERNAL_SERVER_ERROR = 500
+            self.send_error(INTERNAL_SERVER_ERROR)
+
+    def _do_handle_command(self, command, handler):
         OK = 200
         NOT_IMPLEMENTED = 501
 
