@@ -1,6 +1,7 @@
 """stand up a simple HTTP server
 """
 
+import pattern
 
 import collections.abc as abc
 from dataclasses import dataclass
@@ -92,7 +93,7 @@ class _RequestHandler(http.server.BaseHTTPRequestHandler):
             request.body = self.rfile.read(body_length)
 
         response = handler(request)
-        body = None  # response body, to be determined below
+        match, (status, content_type, body) = pattern.Matcher(3)
 
         # `handler` could have returned any of the following:
         #
@@ -109,80 +110,33 @@ class _RequestHandler(http.server.BaseHTTPRequestHandler):
         #
         if response is None:
             self.send_response(OK)
-        elif _matches(int, response):
-            if is_error(response):
-                self.send_error(response)
+        elif match(status[int], response):
+            status = status.value
+            if is_error(status):
+                self.send_error(status)
             else:
-                self.send_response(response)
-        elif _matches(bytes, response):
+                self.send_response(status)
+        elif match(body[bytes], response):
+            body = body.value
             self.send_response(OK)
-            body = response
-        elif _matches((int, bytes), response):
-            status, body = response
+        elif match((status[int], body[bytes]), response):
+            status, body = status.value, body.value
             self.send_response(status)
-        elif _matches({str: bytes}, response):
-            (content_type, body), = response.items()
+        elif match({content_type[str]: body[bytes]}, response):
+            content_type, body = content_type.value, body.value
             self.send_header('Content-Type', content_type)
             self.send_response(OK)
         else:
-            assert _matches((int, {str: bytes}), response)
-            status, content = response
-            (content_type, body), = content.items()
+            match((status[int], {content_type[str]: body[bytes]}), response)
+            assert match
+            status, content_type, body = match.values()
             self.send_header('Content-Type', content_type)
             self.send_response(status)
         
-
-        if body is not None:
+        if type(body) is not pattern.Variable:
             assert isinstance(body, bytes)
             self.send_header('Content-Length', len(body))
             self.end_headers()
             self.wfile.write(body)
         else:
             self.end_headers()
-
-
-# What follows is some poor man's pattern matcher.
-
-
-def _matches(pattern, subject):
-    if isinstance(pattern, abc.Sequence):
-        return _matches_sequence(pattern, subject)
-    elif isinstance(pattern, abc.Mapping):
-        return _matches_mapping(pattern, subject)
-    elif isinstance(pattern, abc.Set):
-        return _matches_set(pattern, subject)
-    elif isinstance(pattern, type):
-        return isinstance(subject, pattern)
-    else:
-        return subject == pattern
-
-
-def _matches_sequence(pattern, subject):
-    if not isinstance(subject, abc.Sequence):
-        return False
-
-    if len(subject) != len(pattern):
-        return False
-
-    return all(_matches(subpattern, subsubject)
-               for subpattern, subsubject in zip(pattern, subject))
-
-
-def _matches_mapping(pattern, subject):
-    if not isinstance(subject, abc.Mapping):
-        return False
-
-    # Note: quadratic time complexity
-    return all(any(_matches(key, k) and _matches(value, v)
-                   for k, v in subject.items())
-               for key, value in pattern.items())
-
-
-def _matches_set(pattern, subject):
-    if not isinstance(subject, abc.Set):
-        return False
-
-    # Note: quadratic time complexity
-    return all(any(_matches(subpattern, subsubject)
-                   for subsubject in subject)
-               for subpattern in pattern)
