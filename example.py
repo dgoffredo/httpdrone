@@ -5,11 +5,11 @@ import sys
 
 def handle_get(request):
     if request.path != '/example':
-        return 404
+        return httpd.Response(status=404)
 
     print(request.body, file=sys.stderr)
 
-    return b'<html><body>Here you go!</body></html>'
+    return httpd.Response(body=b'<html><body>Here you go!</body></html>')
 
 
 if __name__ == '__main__':

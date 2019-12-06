@@ -13,10 +13,10 @@ annoying boilerplate. `httpdrone` hides the boilerplate.
 
 What
 ----
-`httpdrone` is a Python package that allows you to do this:
+`httpdrone` is a Python module that allows you to do this:
 
 ```python
-import httpdrone
+import httpdrone as httpd
 import json
 import os
 import sqlite3
@@ -24,7 +24,7 @@ import sqlite3
 
 def handle_post(request):
     if request.path != '/puzzle_complete':
-        return 404
+        return httpd.Response(status=404)
 
     fields = json.loads(request.body)
     db = sqlite3.connect(os.environ['DATABASE'])
@@ -34,15 +34,17 @@ def handle_post(request):
         values(:puzzle, :difficulty, :begin, :end, :activeMilliseconds);""",
         fields)
 
+    return httpd.Response()  # defaults to status=200 OK with no body
+
 
 if __name__ == '__main__':
     # send SIGTERM when you want to quit
-    httpdrone.serve(('localhost', int(os.environ['PORT'])), POST=handle_post)
+    httpd.serve(('localhost', int(os.environ['PORT'])), POST=handle_post)
 ```
 
 How
 ---
-It's just one Python package, `httpdrone/`.  Copy it into your project.  You
+It's just one Python module, `httpdrone.py`.  Copy it into your project.  You
 need Python 3.7 or later.
 
 More

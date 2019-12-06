@@ -1,9 +1,6 @@
 """stand up a simple HTTP server
 """
 
-import pattern
-
-import collections.abc as abc
 from dataclasses import dataclass
 import http.server
 import traceback
@@ -50,13 +47,22 @@ def serve(binding, generic_handler=None,
 
 @dataclass
 class Request:
-    """A `Request` instance is what is passed to the handler(s) in `serve`."""
+    """A `Request` is what is passed to the handler(s) in `serve`."""
 
     client: typing.Tuple[str, int]  # (host, port)
     command: str
     path: str
     headers: dict
-    body: typing.Optional[bytes]
+    body: typing.Optional[bytes] = None
+
+
+@dataclass
+class Response:
+    """A `Response` is what is returned by the handler(s) in `serve`."""
+
+    status: typing.Optional[int] = 200
+    content_type: typing.Optional[str] = 'text/html'
+    body: typing.Optional[bytes] = None
 
 
 class _RequestHandler(http.server.BaseHTTPRequestHandler):
@@ -69,7 +75,6 @@ class _RequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(INTERNAL_SERVER_ERROR)
 
     def _do_handle_command(self, command, handler):
-        OK = 200
         NOT_IMPLEMENTED = 501
 
         def is_error(status):
@@ -93,50 +98,16 @@ class _RequestHandler(http.server.BaseHTTPRequestHandler):
             request.body = self.rfile.read(body_length)
 
         response = handler(request)
-        match, (status, content_type, body) = pattern.Matcher(3)
 
-        # `handler` could have returned any of the following:
-        #
-        # - None: 200 status code with no message body.
-        # - <int>: status/error code, with canned explanation in body if error.
-        # - <bytes>: 200 status code with the specified message body as
-        #   text/html
-        # - (<int>, <bytes>): specified status code with the specified message
-        #   body as text/html
-        # - {<str>: <bytes>}: 200 status code with the specified Content-Type
-        #   with the specified message body.
-        # - (<int>, {<str>: <bytes>}): specified status/error code with the
-        #   specified Content-Type with the specified message body.
-        #
-        if response is None:
-            self.send_response(OK)
-        elif match(status[int], response):
-            status = status.value
-            if is_error(status):
-                self.send_error(status)
-            else:
-                self.send_response(status)
-        elif match(body[bytes], response):
-            body = body.value
-            self.send_response(OK)
-        elif match((status[int], body[bytes]), response):
-            status, body = status.value, body.value
-            self.send_response(status)
-        elif match({content_type[str]: body[bytes]}, response):
-            content_type, body = content_type.value, body.value
-            self.send_header('Content-Type', content_type)
-            self.send_response(OK)
+        if is_error(response.status):
+            self.send_error(response.status)
         else:
-            match((status[int], {content_type[str]: body[bytes]}), response)
-            assert match
-            status, content_type, body = match.values()
-            self.send_header('Content-Type', content_type)
-            self.send_response(status)
-        
-        if type(body) is not pattern.Variable:
-            assert isinstance(body, bytes)
-            self.send_header('Content-Length', len(body))
+            self.send_response(response.status)
+
+        if response.body is not None:
+            self.send_header('Content-Type', response.content_type)
+            self.send_header('Content-Length', len(response.body))
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(response.body)
         else:
             self.end_headers()
